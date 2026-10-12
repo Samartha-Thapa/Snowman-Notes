@@ -1,7 +1,12 @@
-import { ChevronDown } from "lucide-react";
+"use client"
+
+import { Button } from "@/components/ui/button";
+import { ChevronDown, Menu } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function Home() {
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
   return (
     <main className="min-h-screen bg-[#f7fbff text-slate-900 selection:bg-sky-100 bg-sky-50">
       <header className="mx-auto flex max-w-[1320px] items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
@@ -24,8 +29,18 @@ export default function Home() {
             <span className="flex size-6 items-center justify-center rounded-full bg-[#d9edf9] text-[11px] font-bold text-[#24537a]">JD</span>
             Jamie <ChevronDown aria-hidden="true" />
           </button>
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu"><Menu /></Button>
         </div>
       </header>
+      {mobileOpen && <nav className="mx-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm md:hidden">
+        <Link href="/">WorkSpace</Link>  
+        <Link href="/">About</Link> 
+        <Link href="/">How it works</Link> 
+      </nav>
+    }
+
+
+
     </main>
   );
 }
