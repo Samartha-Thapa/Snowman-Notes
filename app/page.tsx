@@ -1,18 +1,63 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, BookOpen, ChevronDown, FileImage, ImagePlus, Lightbulb, Menu, Sparkles, Upload, X } from "lucide-react";
+import { BookOpen, ChevronDown, FileImage, ImagePlus, Lightbulb, Menu, Sparkles, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { snowmanImage } from "./actions/snowman-ss";
+import { FlashCard } from "@/lib/types";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
-
-  const handleFile = (file?: File) => {
-    if(file) setFile(file.name);
+  const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
+  const [gemmaAnswer, setGemmaAnswer] = useState<{
+    explanation: string;
+    flashcards: Array<FlashCard>;
+  }>({
+    explanation: '',
+    flashcards: [],
+  });
+  
+  const handleFile = (selectedFile?: File) => {
+    if(selectedFile) setFile(selectedFile);
   }
+
+  const solveWithImage = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if(!file) return;
+
+    setLoading(true);
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      if(!reader.result) return;
+
+      const base64string = (reader.result as string).split(',')[1];
+      
+      try{
+        const response = await snowmanImage(base64string);
+        if(response.success && response.data) {
+          setGemmaAnswer(response.data);
+        } else {
+          alert("Error processing your study material. Please try again.");
+        }
+      }catch(err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#f7fbff] bg-sky-50 text-slate-900 selection:bg-sky-100 ">
       {/* Header */}
@@ -39,11 +84,11 @@ export default function Home() {
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu"><Menu /></Button>
         </div>
       </header>
-      {mobileOpen && <nav className="mx-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm md:hidden">
+      {mobileOpen && (<nav className="mx-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm md:hidden">
         <Link href="/">WorkSpace</Link>  
         <Link href="/about">About</Link> 
         <Link href="/how-it-works">How it works</Link> 
-      </nav>
+      </nav>)
     }
 
   {/* Workspace */}
@@ -57,7 +102,7 @@ export default function Home() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(310px,.7fr)]">
-        <div className="rounded-[28px] border border-[#d9eaf3] bg-white p-5 shadow-[0_18px_50px_rgba(38, 98, 132, 0.07)] sm:p-7">
+        <form onSubmit={solveWithImage} className="rounded-[28px] border border-[#d9eaf3] bg-white p-5 shadow-[0_18px_50px_rgba(38, 98, 132, 0.07)] sm:p-7">
           <div className="mb-6 flex items-start justify-between">
             <div className="">
               <h2 className="text-lg font-bold text-[#173b62]">What are you working on?</h2>
@@ -68,15 +113,56 @@ export default function Home() {
           <input ref={inputRef} className="sr-only" type="file" accept="image/*" onChange={(event) => handleFile(event.target.files?.[0])} />
           <div className="group flex min-h-[265px] cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-[#b9ddec] bg-[#f6fbfe] px-6 text-center transition hover:border-[#65afd5] hover:bg-[#f0faff]" role="button" tabIndex={0} onClick={() => inputRef.current?.click()} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click()}} onDrop={(event) => { event.preventDefault(); handleFile(event.dataTransfer.files?.[0]) }} onDragOver={(event) => event.preventDefault()}>
             <div className="mb-5 flex size-16 items-cener justify-center rounded-[20px] bg-white text-[#62abd2] shadow-[0_8px_25px_rgba(55, 143, 190, 0.12)] transition group-hover:scale-105"><ImagePlus aria-hidden="true" /></div>
-            <p className="font-semibold text-[#24537a]">{file || 'Drop your question here'}</p>
+            <p className="font-semibold text-[#24537a]">{file ? file.name : 'Drop your question here'}</p>
             <p className="mt-2 text-sm text-slate-400">or click to browse from your device</p>
             <span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-[#579bc1]"><Upload aria-hidden="true" />PNG, JPG or HEIC . up to 10MB</span>
           </div>
-          {file && <div className="mt-4 flex items-center justify-between rounded-xl bg-[#eef9fd] px-4 py-3 text-sm text-[#24537a]"><span className="flex items-center gap-2"><FileImage aria-hidden="true" />{file}</span><button onClick={() => setFile('')} aria-label="Remove selected Image"><X /></button></div>}
+          {file && <div className="mt-4 flex items-center justify-between rounded-xl bg-[#eef9fd] px-4 py-3 text-sm text-[#24537a]"><span className="flex items-center gap-2"><FileImage aria-hidden="true" />{file.name}</span>
+            <button onClick={() => setFile(null)} aria-label="Remove selected Image"><X /></button></div>}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-center gap-2 text-xs text-slate-400"><Lightbulb aria-hidden="true" /> Tip: Crop out distraction for a better answer</p>
-            <Button className="h-11 rounded-xl bg-[#173b62] px-5 text-white hover:bg-[#24537a]" disabled={!file}><Sparkles data-icon="inline-start" /> Solve with SnowMan</Button>
+            <Button type="submit" className="h-11 rounded-xl bg-[#173b62] px-5 text-white hover:bg-[#24537a]" disabled={!file || loading}>
+              {loading ? "Solving..." : (
+                <>
+                  <Sparkles data-icon="inline-start" /> Solve with SnowMan
+                </>
+              )}
+            </Button>
           </div>
+        </form>
+
+        {/* Results Output Right Side */}
+        <div className="space-y-6">
+          {gemmaAnswer.explanation && (
+            <div className="rounded-[28px] border border-[#d9eaf3] bg-white p-6 shadow-sm">
+              <h3 className="text-xl font-bold text-[#173b62] mb-3">Explanation</h3>
+              <div className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed prose prose-slate prose-sm max-w-none
+              ">
+                <ReactMarkdown 
+                  remarkPlugins={[remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                >
+                  {gemmaAnswer.explanation}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )}
+
+          {gemmaAnswer.flashcards.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xl font-bold text-[#173b62]">Study Flashcards</h3>
+              <div className="grid gap-3 grid-cols-1">
+                {gemmaAnswer.flashcards.map((card, index) => (
+                  <div key={index} onClick={() => setFlippedIndex(flippedIndex === index ? null : index)} 
+                  className="min-h-[100px] border border-[#d9eaf3] rounded-2xl p-5 flex items-center justify-center text-center cursor-pointer bg-white shadow-sm hover:border-[#65afd5] transition select-none">
+                    <p className="text-sm font-semibold text-[#24537a]">
+                      {flippedIndex === index ? `❄️ Answer: ${card.back}` : `? Question: ${card.front}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
